@@ -28,7 +28,10 @@ export default function App() {
     const [theme, setTheme] = useState('dark')
     const [showInfo, setShowInfo] = useState(false)
 
-    useEffect(() => { applyTheme('dark') }, [])
+    useEffect(() => {
+        console.log("Calculator Version: 3.0 (Fixed Equals)")
+        applyTheme('dark')
+    }, [])
 
     const handleThemeChange = useCallback((t) => {
         setTheme(t); applyTheme(t)
