@@ -1,44 +1,37 @@
+import React from 'react'
+
 export default function InfoPanel({ onClose }) {
     return (
-        <div className="info-overlay" onClick={onClose}>
-            <div className="info-panel" onClick={e => e.stopPropagation()}>
-                <button className="info-close" onClick={onClose}>×</button>
-                <h2>Почему React? ⚛️</h2>
-
-                <div className="info-card">
-                    <h4>1. Компоненты (Components)</h4>
-                    <p>Весь интерфейс разбит на независимые кирпичики (Кнопки, Дисплей, История). Их легко менять и переиспользовать.</p>
+        <div className="info-overlay" onClick={onClose} style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100,
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+            <div className="info-panel" onClick={e => e.stopPropagation()} style={{
+                background: 'var(--surface)', padding: '24px', borderRadius: 'var(--radius)',
+                maxWidth: '400px', width: '90%', boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+                border: '1px solid var(--surface-2)'
+            }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                    <h2 style={{ fontSize: '1.2rem' }}>About</h2>
+                    <button onClick={onClose} style={{
+                        background: 'none', border: 'none', color: 'var(--text-dim)', fontSize: '1.5rem', cursor: 'pointer'
+                    }}>×</button>
                 </div>
 
-                <div className="info-card">
-                    <h4>2. Состояние (State)</h4>
-                    <p>React сам следит за данными. Когда меняется цифра на экране, React обновляет только эту часть, а не всю страницу.</p>
-                </div>
+                <p style={{ marginBottom: '12px', color: 'var(--text-dim)', lineHeight: '1.5' }}>
+                    Professional Scientific Calculator built with React.
+                </p>
 
-                <div className="info-card">
-                    <h4>3. Виртуальный DOM</h4>
-                    <p>React работает быстрее, потому что сначала "рисует" изменения в памяти, а потом точечно обновляет браузер.</p>
-                </div>
+                <ul style={{ marginBottom: '20px', paddingLeft: '20px', color: 'var(--text)', fontSize: '0.9rem' }}>
+                    <li>Scientific functions</li>
+                    <li>History tape</li>
+                    <li>Multiple themes</li>
+                    <li>Responsive design</li>
+                </ul>
 
-                <div className="info-card">
-                    <h4>Сравнение</h4>
-                    <table className="compare-table">
-                        <thead>
-                            <tr><th>Обычный JS</th><th>React</th></tr>
-                        </thead>
-                        <tbody>
-                            <tr><td>Много <code>document.querySelector</code></td><td>Нет ручных выборок</td></tr>
-                            <tr><td>Сложно обновлять UI</td><td>UI обновляется сам</td></tr>
-                            <tr><td>Код — "спагетти"</td><td>Чёткая структура</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <div className="info-card">
-                    <p style={{ textAlign: 'center', opacity: 0.7, fontSize: '11px' }}>
-                        Kami Calc 💕 v2.0 • Love Edition
-                    </p>
-                </div>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-dim)', textAlign: 'center' }}>
+                    Version 2.1
+                </p>
             </div>
         </div>
     )
