@@ -27,6 +27,7 @@ function calculate(pVal, op, cVal) {
 }
 
 export default function Calculator({ addHistory, onShowInfo }) {
+    console.log("Calculator Component Rendered")
     const [cur, setCur] = useState('0')
     const [prev, setPrev] = useState('')
     const [op, setOp] = useState(null)
@@ -189,7 +190,7 @@ export default function Calculator({ addHistory, onShowInfo }) {
     return (
         <div className="calc">
             <div className="calc-top">
-                <div className="brand">Scientific Calculator</div>
+                <div className="brand">Scientific Calculator v3</div>
                 <div className="top-actions">
                     <button className="icon-btn" onClick={onShowInfo}>ℹ️</button>
                     <div className="seg-ctrl">
