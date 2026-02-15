@@ -1,7 +1,5 @@
-node_modules/
-dist/
-release/
+node_modules
 android/
-ios/
+release/
+dist/
 .DS_Store
-*.log

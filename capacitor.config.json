@@ -1,6 +1,6 @@
 {
     "appId": "com.kurbon.calculator",
-    "appName": "Scientific Calculator",
+    "appName": "Курбон",
     "webDir": "dist",
     "server": {
         "androidScheme": "https"

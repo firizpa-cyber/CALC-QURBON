@@ -1,227 +1,253 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 
 const OPS = { add: '+', subtract: '−', multiply: '×', divide: '÷', power: '^', exp: '×10^' }
-function fmt(num) {
-    if (isNaN(num)) return num
-    const s = num.toString()
-    if (s.includes('e')) return s
-    const p = s.split('.'); p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' '); return p.join('.')
-}
-const rd = v => Math.round(v * 1e12) / 1e12
-function fact(n) { if (n < 0 || n > 170 || n !== Math.floor(n)) return NaN; let r = 1; for (let i = 2; i <= n; i++) r *= i; return r }
 
-function calculate(pVal, op, cVal) {
-    const p = parseFloat(pVal), c = parseFloat(cVal)
-    let r
-    switch (op) {
-        case 'add': r = p + c; break
-        case 'subtract': r = p - c; break
-        case 'multiply': r = p * c; break
-        case 'divide': if (c === 0) return 'Error'; r = p / c; break
-        case 'power': r = Math.pow(p, c); break
-        case 'exp': r = p * Math.pow(10, c); break
-        default: return cVal
-    }
-    r = rd(r)
-    return isFinite(r) ? r : 'Error'
+function formatNumber(num) {
+    if (isNaN(num)) return num
+    const str = num.toString()
+    if (str.includes('e')) return str
+    const parts = str.split('.')
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+    return parts.join('.')
+}
+
+function roundResult(v) { return Math.round(v * 1e12) / 1e12 }
+
+function factorial(n) {
+    if (n < 0 || n > 170 || n !== Math.floor(n)) return NaN
+    let r = 1; for (let i = 2; i <= n; i++) r *= i; return r
 }
 
 export default function Calculator({ addHistory, onShowInfo }) {
-    console.log("Calculator Component Rendered")
-    const [cur, setCur] = useState('0')
-    const [prev, setPrev] = useState('')
-    const [op, setOp] = useState(null)
-    const [expr, setExpr] = useState('')
-    const [reset, setReset] = useState(false)
-    const [deg, setDeg] = useState(true)
-    const [sci, setSci] = useState(true)
+    const [current, setCurrent] = useState('0')
+    const [previous, setPrevious] = useState('')
+    const [operator, setOperator] = useState(null)
+    const [expression, setExpression] = useState('')
+    const [shouldReset, setShouldReset] = useState(false)
+    const [useDeg, setUseDeg] = useState(true)
+    const [sciMode, setSciMode] = useState(false)
     const [activeOp, setActiveOp] = useState(null)
-    const [pressed, setPressed] = useState(null)
 
-    const ref = useRef({})
-    useEffect(() => { ref.current = { cur, prev, op, reset, deg } }) // Update ref on every render
+    const stateRef = useRef({})
+    stateRef.current = { current, previous, operator, shouldReset, useDeg }
 
     useEffect(() => {
-        window.__calcSetValue = v => { setCur(v.toString()); setReset(true) }
+        window.__calcSetValue = (val) => { setCurrent(val.toString()); setShouldReset(true) }
         return () => { delete window.__calcSetValue }
     }, [])
 
-    const inputNum = useCallback(n => {
-        setCur(p => {
-            const s = ref.current
-            if (s.reset) { setReset(false); return n }
-            return p === '0' ? n : p + n
+    const inputNumber = useCallback((num) => {
+        setCurrent(prev => {
+            if (stateRef.current.shouldReset) { setShouldReset(false); return num }
+            return prev === '0' ? num : prev + num
         })
-        setReset(false)
+        setShouldReset(false)
     }, [])
 
-    const inputDec = useCallback(() => {
-        setCur(p => {
-            const s = ref.current
-            if (s.reset) { setReset(false); return '0.' }
-            return p.includes('.') ? p : p + '.'
+    const inputDecimal = useCallback(() => {
+        setCurrent(prev => {
+            if (stateRef.current.shouldReset) { setShouldReset(false); return '0.' }
+            return prev.includes('.') ? prev : prev + '.'
         })
-        setReset(false)
+        setShouldReset(false)
     }, [])
 
-    const inputOp = useCallback(o => {
-        const s = ref.current
-        let val = s.cur
-
-        if (s.op && !s.reset) {
-            const result = calculate(s.prev, s.op, s.cur)
-            if (result === 'Error') {
-                setCur('Error'); setReset(true); setOp(null); setPrev(''); return
-            }
-            setCur(result.toString())
-            setPrev(result.toString())
-            val = result.toString()
-            // Optional: add to history for intermediate steps? usually not for chaining
-        } else {
-            setPrev(val)
+    const doCalc = useCallback((prevVal, op, currVal, toHistory = true) => {
+        const prev = parseFloat(prevVal), curr = parseFloat(currVal)
+        let result
+        switch (op) {
+            case 'add': result = prev + curr; break
+            case 'subtract': result = prev - curr; break
+            case 'multiply': result = prev * curr; break
+            case 'divide':
+                if (curr === 0) { setCurrent('Деление на 0'); setExpression(''); setOperator(null); setPrevious(''); setShouldReset(true); setActiveOp(null); return }
+                result = prev / curr; break
+            case 'power': result = Math.pow(prev, curr); break
+            case 'exp': result = prev * Math.pow(10, curr); break
+            default: return
         }
-
-        setOp(o)
-        setReset(true)
-        setActiveOp(o)
-        setExpr(`${fmt(parseFloat(val))} ${OPS[o]}`)
-    }, [])
-
-    const equals = useCallback(() => {
-        const s = ref.current
-        if (!s.op || s.prev === '') return
-
-        const result = calculate(s.prev, s.op, s.cur)
-        if (result === 'Error') {
-            setCur('Error'); setReset(true); setOp(null); setPrev(''); setExpr(''); return
-        }
-
-        const e = `${fmt(parseFloat(s.prev))} ${OPS[s.op]} ${fmt(parseFloat(s.cur))}`
-        addHistory(e, result)
-        setExpr(e)
-        setCur(result.toString())
-        setOp(null)
-        setPrev('')
-        setReset(true)
-        setActiveOp(null)
+        result = roundResult(result)
+        if (!isFinite(result)) { setCurrent('Ошибка'); setExpression(''); setOperator(null); setPrevious(''); setShouldReset(true); setActiveOp(null); return }
+        const fullExpr = `${formatNumber(prev)} ${OPS[op]} ${formatNumber(curr)}`
+        if (toHistory) addHistory(fullExpr, result)
+        setExpression(`${fullExpr} =`); setCurrent(result.toString()); setOperator(null); setPrevious(''); setShouldReset(true); setActiveOp(null)
     }, [addHistory])
+
+    const inputOperator = useCallback((op) => {
+        setCurrent(curr => {
+            const st = stateRef.current
+            if (st.operator && !st.shouldReset) doCalc(st.previous, st.operator, curr, false)
+            setPrevious(curr); setOperator(op); setShouldReset(true); setActiveOp(op)
+            setExpression(`${formatNumber(parseFloat(curr))} ${OPS[op]}`)
+            return curr
+        })
+    }, [doCalc])
+
+    const calculate = useCallback(() => {
+        const st = stateRef.current
+        if (!st.operator || st.previous === '') return
+        setCurrent(curr => { doCalc(st.previous, st.operator, curr, true); return curr })
+    }, [doCalc])
 
     const clear = useCallback(() => {
-        setCur('0'); setPrev(''); setOp(null); setReset(false); setExpr(''); setActiveOp(null)
+        setCurrent('0'); setPrevious(''); setOperator(null); setShouldReset(false); setExpression(''); setActiveOp(null)
     }, [])
 
-    const back = useCallback(() => {
-        const s = ref.current
-        if (s.reset || s.cur === 'Error') { clear(); return }
-        setCur(p => p.slice(0, -1) || '0')
+    const backspace = useCallback(() => {
+        setCurrent(prev => {
+            if (stateRef.current.shouldReset || prev === 'Ошибка' || prev === 'Деление на 0') { clear(); return '0' }
+            return prev.slice(0, -1) || '0'
+        })
     }, [clear])
 
-    const sign = useCallback(() => setCur(p => (parseFloat(p) * -1).toString()), [])
-
-    const pct = useCallback(() => {
-        const s = ref.current
-        const v = parseFloat(s.cur)
-        if (s.op && s.prev) {
-            const res = (parseFloat(s.prev) * v / 100).toString()
-            setCur(res)
-        } else {
-            setCur((v / 100).toString())
-        }
-        setReset(true)
+    const toggleSign = useCallback(() => {
+        setCurrent(prev => (prev === '0' || prev === 'Ошибка') ? prev : (parseFloat(prev) * -1).toString())
     }, [])
 
-    const unary = useCallback((lbl, fn, post) => {
-        const s = ref.current
-        const v = parseFloat(s.cur)
-        const r = rd(fn(v))
-        if (isNaN(r) || !isFinite(r)) { setCur('Error'); setReset(true); return }
-        const resStr = r.toString()
-        addHistory(post ? `${fmt(v)}${lbl}` : `${lbl}(${fmt(v)})`, r)
-        setCur(resStr)
-        setReset(true)
+    const percent = useCallback(() => {
+        setCurrent(prev => {
+            if (prev === 'Ошибка') return prev
+            const val = parseFloat(prev), st = stateRef.current
+            return st.operator && st.previous ? (parseFloat(st.previous) * val / 100).toString() : (val / 100).toString()
+        })
+    }, [])
+
+    const applyUnary = useCallback((label, fn, isPost = false) => {
+        setCurrent(prev => {
+            const val = parseFloat(prev); if (isNaN(val)) return prev
+            let result = roundResult(fn(val))
+            if (isNaN(result) || !isFinite(result)) { setExpression(''); setShouldReset(true); return 'Ошибка' }
+            const expr = isPost ? `${formatNumber(val)}${label}` : `${label}(${formatNumber(val)})`
+            addHistory(expr, result); setExpression(`${expr} =`); setShouldReset(true); return result.toString()
+        })
     }, [addHistory])
 
-    const trig = useCallback(fn => {
-        const s = ref.current
-        const v = parseFloat(s.cur)
-        const angle = s.deg ? v * Math.PI / 180 : v
-        const val = ['sin', 'cos', 'tan'].includes(fn) ? Math[fn](angle) : (Math[fn](v) * (180 / Math.PI))
-        const r = rd(val)
-        if (isNaN(r) || !isFinite(r)) { setCur('Error'); setReset(true); return }
-        addHistory(`${fn}(${fmt(v)})`, r)
-        setCur(r.toString())
-        setReset(true)
+    const trigFn = useCallback((fn) => {
+        setCurrent(prev => {
+            const val = parseFloat(prev); if (isNaN(val)) return prev
+            let result
+            if (['sin', 'cos', 'tan'].includes(fn)) {
+                result = Math[fn](stateRef.current.useDeg ? val * Math.PI / 180 : val)
+            } else { result = Math[fn](val); if (stateRef.current.useDeg) result *= 180 / Math.PI }
+            result = roundResult(result)
+            if (isNaN(result) || !isFinite(result)) { setExpression(''); setShouldReset(true); return 'Ошибка' }
+            const expr = `${fn}(${formatNumber(val)})`
+            addHistory(expr, result); setExpression(`${expr} =`); setShouldReset(true); return result.toString()
+        })
     }, [addHistory])
 
-    const handle = useCallback(a => {
-        if (a >= '0' && a <= '9') return inputNum(a); if (a === '.') return inputDec();
-        const ops = { '+': 'add', '-': 'subtract', '*': 'multiply', '/': 'divide' }; if (ops[a]) return inputOp(ops[a])
-        if (['add', 'subtract', 'multiply', 'divide'].includes(a)) return inputOp(a); if (a === '=') return equals()
-        if (a === 'clear') return clear(); if (a === 'back') return back(); if (a === 'sign') return sign(); if (a === 'pct') return pct()
-        if (a === 'sin' || a === 'cos' || a === 'tan' || a === 'asin' || a === 'acos' || a === 'atan') return trig(a)
-        if (a === 'ln') return unary('ln', Math.log); if (a === 'log') return unary('log', Math.log10)
-        if (a === 'sqrt') return unary('√', Math.sqrt); if (a === 'cbrt') return unary('³√', Math.cbrt)
-        if (a === 'sq') return unary('²', x => x * x, true); if (a === 'cube') return unary('³', x => x * x * x, true)
-        if (a === 'inv') return unary('⁻¹', x => 1 / x, true); if (a === 'abs') return unary('|', Math.abs)
-        if (a === 'fact') return unary('!', fact, true); if (a === 'exp') return inputOp('exp'); if (a === 'power') return inputOp('power')
-        if (a === 'pi') { setCur(Math.PI.toString()); setReset(true) }
-        if (a === 'e') { setCur(Math.E.toString()); setReset(true) }
-    }, [inputNum, inputDec, inputOp, equals, clear, back, sign, pct, unary, trig])
+    const doFactorial = useCallback(() => {
+        setCurrent(prev => {
+            const val = parseFloat(prev); const result = factorial(val)
+            if (isNaN(result)) { setExpression(''); setShouldReset(true); return 'Ошибка' }
+            const expr = `${formatNumber(val)}!`
+            addHistory(expr, result); setExpression(`${expr} =`); setShouldReset(true); return result.toString()
+        })
+    }, [addHistory])
+
+    const handleBtn = useCallback((action) => {
+        if (action >= '0' && action <= '9') return inputNumber(action)
+        if (action === 'decimal') return inputDecimal()
+        if (['add', 'subtract', 'multiply', 'divide'].includes(action)) return inputOperator(action)
+        if (action === 'equals') return calculate()
+        if (action === 'clear') return clear()
+        if (action === 'backspace') return backspace()
+        if (action === 'toggle-sign') return toggleSign()
+        if (action === 'percent') return percent()
+        if (['sin', 'cos', 'tan', 'asin', 'acos', 'atan'].includes(action)) return trigFn(action)
+        if (action === 'ln') return applyUnary('ln', Math.log)
+        if (action === 'log') return applyUnary('log', Math.log10)
+        if (action === 'sqrt') return applyUnary('√', Math.sqrt)
+        if (action === 'cbrt') return applyUnary('³√', Math.cbrt)
+        if (action === 'square') return applyUnary('²', v => v * v, true)
+        if (action === 'cube') return applyUnary('³', v => v * v * v, true)
+        if (action === 'factorial') return doFactorial()
+        if (action === 'abs') return applyUnary('|x|', Math.abs)
+        if (action === 'inverse') return applyUnary('1/', v => 1 / v)
+        if (action === 'pi') { setCurrent(Math.PI.toString()); setShouldReset(true); return }
+        if (action === 'e') { setCurrent(Math.E.toString()); setShouldReset(true); return }
+        if (action === 'power') return inputOperator('power')
+        if (action === 'exp') return inputOperator('exp')
+    }, [inputNumber, inputDecimal, inputOperator, calculate, clear, backspace, toggleSign, percent, trigFn, applyUnary, doFactorial])
 
     useEffect(() => {
-        const h = e => {
+        const handler = (e) => {
             const k = e.key
-            if ((k >= '0' && k <= '9') || k === '.' || ['+', '-', '*', '/'].includes(k)) { e.preventDefault(); handle(k) }
-            else if (k === 'Enter' || k === '=') { e.preventDefault(); handle('=') }
-            else if (k === 'Escape') { e.preventDefault(); handle('clear') }
-            else if (k === 'Backspace') { e.preventDefault(); handle('back') }
-            else if (k === '%') { e.preventDefault(); handle('pct') }
+            if (k >= '0' && k <= '9') { e.preventDefault(); handleBtn(k) }
+            else if (k === '.') { e.preventDefault(); handleBtn('decimal') }
+            else if (k === '+') { e.preventDefault(); handleBtn('add') }
+            else if (k === '-') { e.preventDefault(); handleBtn('subtract') }
+            else if (k === '*') { e.preventDefault(); handleBtn('multiply') }
+            else if (k === '/') { e.preventDefault(); handleBtn('divide') }
+            else if (k === 'Enter' || k === '=') { e.preventDefault(); handleBtn('equals') }
+            else if (k === 'Escape' || k === 'Delete') { e.preventDefault(); handleBtn('clear') }
+            else if (k === 'Backspace') { e.preventDefault(); handleBtn('backspace') }
+            else if (k === '%') { e.preventDefault(); handleBtn('percent') }
+            else if (k === '^') { e.preventDefault(); handleBtn('power') }
         }
-        document.addEventListener('keydown', h); return () => document.removeEventListener('keydown', h)
-    }, [handle])
+        document.addEventListener('keydown', handler)
+        return () => document.removeEventListener('keydown', handler)
+    }, [handleBtn])
 
-    const press = (action) => { setPressed(action); setTimeout(() => setPressed(null), 150); handle(action) }
-    const B = (action, label, type = '') => (
-        <button key={action} className={`btn ${type}${action === activeOp ? ' active' : ''}${action === pressed ? ' active' : ''}`} onClick={() => press(action)}>{label}</button>
+    const ripple = (e) => {
+        const btn = e.currentTarget, rect = btn.getBoundingClientRect()
+        const size = Math.max(rect.width, rect.height)
+        const r = document.createElement('span'); r.className = 'ripple'
+        r.style.width = r.style.height = size + 'px'
+        r.style.left = (e.clientX - rect.left - size / 2) + 'px'
+        r.style.top = (e.clientY - rect.top - size / 2) + 'px'
+        btn.appendChild(r); setTimeout(() => r.remove(), 500)
+    }
+
+    const B = (action, label, cls) => (
+        <button key={action} className={`btn ${cls}${action === activeOp ? ' active' : ''}`}
+            onClick={(e) => { ripple(e); handleBtn(action) }}>{label}</button>
     )
 
-    const dv = ['Error', 'Infinity', 'NaN'].includes(cur) ? cur : fmt(parseFloat(cur)) + (cur.endsWith('.') ? '.' : '')
+    const displayValue = ['Ошибка', 'Деление на 0'].includes(current)
+        ? current : (current.endsWith('.') ? formatNumber(parseFloat(current)) + '.' : formatNumber(parseFloat(current)))
 
     return (
-        <div className="calc">
-            <div className="calc-top">
-                <div className="brand">Scientific Calculator v3</div>
-                <div className="top-actions">
-                    <button className="icon-btn" onClick={onShowInfo}>ℹ️</button>
-                    <div className="seg-ctrl">
-                        <button className={`seg${!sci ? ' on' : ''}`} onClick={() => setSci(false)}>Basic</button>
-                        <button className={`seg${sci ? ' on' : ''}`} onClick={() => setSci(true)}>Sci</button>
+        <div className={`calculator${sciMode ? ' scientific-mode' : ''}`}>
+            <div className="calc-header">
+                <div className="brand">Курбон</div>
+                <div className="header-actions">
+                    <button className="info-trigger" onClick={onShowInfo} title="Почему React?">⚛️</button>
+                    <div className="mode-toggle">
+                        <button className={`mode-btn${!sciMode ? ' active' : ''}`} onClick={() => setSciMode(false)}>Обычный</button>
+                        <button className={`mode-btn${sciMode ? ' active' : ''}`} onClick={() => setSciMode(true)}>Научный</button>
                     </div>
                 </div>
             </div>
 
             <div className="display">
-                {sci && <span className="deg-badge">{deg ? 'DEG' : 'RAD'}</span>}
-                <div className="expr">{expr}</div>
-                <div className={`val${cur.length > 10 ? ' sm' : ''}`}>{dv}</div>
+                <div className={`angle-indicator${sciMode ? ' visible' : ''}`}>{useDeg ? 'DEG' : 'RAD'}</div>
+                <div className="expression">{expression}</div>
+                <div className={`result${current.length > 10 ? ' shrink' : ''}`}>{displayValue}</div>
             </div>
 
-            {sci && (
-                <div className="sci-grid">
-                    {B('sin', 'sin', 's')}{B('cos', 'cos', 's')}{B('tan', 'tan', 's')}{B('pi', 'π', 's')}{B('e', 'e', 's')}
-                    {B('asin', 'sin⁻¹', 's')}{B('acos', 'cos⁻¹', 's')}{B('atan', 'tan⁻¹', 's')}{B('ln', 'ln', 's')}{B('log', 'log', 's')}
-                    {B('sqrt', '√', 's')}{B('cbrt', '³√', 's')}{B('power', 'xⁿ', 's')}{B('sq', 'x²', 's')}{B('cube', 'x³', 's')}
-                    {B('fact', 'x!', 's')}{B('abs', '|x|', 's')}{B('inv', '1/x', 's')}{B('exp', 'EXP', 's')}
-                    <button className="btn s" onClick={() => setDeg(d => !d)}>{deg ? 'RAD' : 'DEG'}</button>
+            <div className={`sci-panel${sciMode ? ' open' : ''}`}>
+                <div className="sci-row">
+                    {B('sin', 'sin', 'btn-sci')}{B('cos', 'cos', 'btn-sci')}{B('tan', 'tan', 'btn-sci')}{B('pi', 'π', 'btn-sci')}{B('e', 'e', 'btn-sci')}
                 </div>
-            )}
+                <div className="sci-row">
+                    {B('asin', 'sin⁻¹', 'btn-sci')}{B('acos', 'cos⁻¹', 'btn-sci')}{B('atan', 'tan⁻¹', 'btn-sci')}{B('ln', 'ln', 'btn-sci')}{B('log', 'log', 'btn-sci')}
+                </div>
+                <div className="sci-row">
+                    {B('sqrt', '√x', 'btn-sci')}{B('cbrt', '³√x', 'btn-sci')}{B('power', 'xⁿ', 'btn-sci')}{B('square', 'x²', 'btn-sci')}{B('cube', 'x³', 'btn-sci')}
+                </div>
+                <div className="sci-row">
+                    {B('factorial', 'x!', 'btn-sci')}{B('abs', '|x|', 'btn-sci')}{B('inverse', '1/x', 'btn-sci')}{B('exp', 'EXP', 'btn-sci')}
+                    <button className="btn btn-sci" onClick={(e) => { ripple(e); setUseDeg(d => !d) }}>{useDeg ? 'RAD' : 'DEG'}</button>
+                </div>
+            </div>
 
-            <div className="grid">
-                {B('clear', 'AC', 'f')}{B('back', '⌫', 'f')}{B('pct', '%', 'f')}{B('divide', '÷', 'op')}
-                {B('7', '7', 'n')}{B('8', '8', 'n')}{B('9', '9', 'n')}{B('multiply', '×', 'op')}
-                {B('4', '4', 'n')}{B('5', '5', 'n')}{B('6', '6', 'n')}{B('subtract', '−', 'op')}
-                {B('1', '1', 'n')}{B('2', '2', 'n')}{B('3', '3', 'n')}{B('add', '+', 'op')}
-                {B('sign', '±', 'n')}{B('0', '0', 'n')}{B('.', '·', 'n')}{B('equals', '=', 'eq')}
+            <div className="buttons">
+                {B('clear', 'AC', 'btn-function')}{B('backspace', '⌫', 'btn-function')}{B('percent', '%', 'btn-function')}{B('divide', '÷', 'btn-operator')}
+                {B('7', '7', 'btn-number')}{B('8', '8', 'btn-number')}{B('9', '9', 'btn-number')}{B('multiply', '×', 'btn-operator')}
+                {B('4', '4', 'btn-number')}{B('5', '5', 'btn-number')}{B('6', '6', 'btn-number')}{B('subtract', '−', 'btn-operator')}
+                {B('1', '1', 'btn-number')}{B('2', '2', 'btn-number')}{B('3', '3', 'btn-number')}{B('add', '+', 'btn-operator')}
+                {B('toggle-sign', '±', 'btn-number')}{B('0', '0', 'btn-number')}{B('decimal', '.', 'btn-number')}{B('equals', '=', 'btn-equals')}
             </div>
         </div>
     )
